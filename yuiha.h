@@ -1,1 +1,3 @@
 #define O_VERSION       04000000
+#define YUIHA_SUPER_MAGIC 0xEF54
+

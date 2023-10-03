@@ -11,8 +11,8 @@
 #define OPTSTRING "s:"
 
 static struct option long_options[] = {
-  {"snapshot", required_argument, NULL, 's'},
-  {NULL, 0, NULL, 0}
+	{"snapshot", required_argument, NULL, 's'},
+	{NULL, 0, NULL, 0}
 };
 
 int main(int argc, char *argv[])
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	while (true) {
 		if ((c = getopt_long(argc, argv, OPTSTRING, long_options,
                          &option_index)) == -1) {
-		  break;
+			break;
 		}
 
 		switch (c) {
@@ -32,11 +32,9 @@ int main(int argc, char *argv[])
 				printf("failed to open file %s\n", optarg);
 			else
 				puts("create snapshot");
-
 			break;
-		 
 		}
-	}	
+	}
 
 	return 0;
 }
