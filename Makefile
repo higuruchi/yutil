@@ -4,7 +4,7 @@ CC = gcc
 
 
 default:
-	gcc -o yutil main.c
+	gcc -g3 -o yutil main.c
 
 clean:
 
