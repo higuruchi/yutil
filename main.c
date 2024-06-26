@@ -7,16 +7,19 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/mman.h>
 
+#include "err.h"
 #include "yuiha.h"
 
-#define OPTSTRING "p:a:o"
+#define OPTSTRING "p:a:om"
 #define BUF_SIZE	4096
 
 static struct option long_options[] = {
 	{"path", required_argument, NULL, 'p'},
 	{"arg", required_argument, NULL, 'a'},
 	{"parent", no_argument, NULL, 'o'},
+	{"mmap", no_argument, NULL, 'm'},
 	{NULL, 0, NULL, 0},
 };
 
@@ -25,7 +28,7 @@ int create_version(struct yutil_opt *yo, int mode)
 {
 	int fd = open(yo->path, mode | O_VERSION);
 	if (fd < 0) {
-		printf("failed to open file %s\n", yo->path);
+		ERROR("Failed to open file %s", yo->path);
 		return -1;
 	}
 
@@ -38,7 +41,7 @@ int cat_file(struct yutil_opt *yo)
 	int ret, fd;
 	char *buf = (char *)malloc(BUF_SIZE);
 	if (!buf) {
-		printf("memory allocation error\n");
+		ERROR("Memory allocation error");
 		return -1;
 	}
 
@@ -47,7 +50,7 @@ int cat_file(struct yutil_opt *yo)
 	else
 		fd = open(yo->path, O_RDONLY);
 	if (fd < 0) {
-		printf("failed to open %s\n", yo->path);
+		ERROR("Failed to open file %s", yo->path);
 		return -1;
 	}
 
@@ -55,6 +58,27 @@ int cat_file(struct yutil_opt *yo)
 		ret = read(fd, buf, BUF_SIZE);
 		write(1, buf, ret);
 	}	while (0 < ret);
+
+	return 0;
+}
+
+int overwrite_using_mmap(struct yutil_opt *yo, int fd)
+{
+	char *map;
+	long page_size, map_size;
+
+	page_size = getpagesize();
+	map_size = (yo->arg_len / page_size + 1) * page_size;
+
+	map = (char *)mmap(NULL, map_size, PROT_WRITE, MAP_SHARED, fd, 0);
+	if (map == MAP_FAILED) {
+		ERROR("Mmap failed");
+		return -1;
+	}
+	strncpy(map, yo->arg, yo->arg_len);
+
+	munmap(map, map_size);
+	close(fd);
 
 	return 0;
 }
@@ -67,14 +91,18 @@ int overwrite(struct yutil_opt *yo)
 	else
 		fd = open(yo->path, O_WRONLY);
 	if (fd < 0) {
-		printf("failed to open %s\n", yo->path);
+		ERROR("Failed to open file %s", yo->path);
 		return -1;
 	}
 
-	ret = write(fd, yo->arg, yo->arg_len);
+	if (yo->mmap_flg) {
+		ret = overwrite_using_mmap(yo, fd);
+	} else {
+		ret = write(fd, yo->arg, yo->arg_len);
+	}
+
 	if (ret < 0)
-		printf("failed to write\n");
- 
+		ERROR("Failed to write");
 	return 0;
 }
 
@@ -113,6 +141,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'o':
 				yo.parent_flg = true;
+				break;
+			case 'm':
+				yo.mmap_flg = true;
 				break;
 		}
 	}

@@ -17,4 +17,6 @@ struct yutil_opt {
 	int arg_len;
 	char *arg;
 	bool parent_flg;
+	bool mmap_flg;
 };
+
