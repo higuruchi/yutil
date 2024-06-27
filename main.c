@@ -12,7 +12,7 @@
 #include "err.h"
 #include "yuiha.h"
 
-#define OPTSTRING "p:a:om"
+#define OPTSTRING "p:a:omc"
 #define BUF_SIZE	4096
 
 static struct option long_options[] = {
@@ -20,6 +20,7 @@ static struct option long_options[] = {
 	{"arg", required_argument, NULL, 'a'},
 	{"parent", no_argument, NULL, 'o'},
 	{"mmap", no_argument, NULL, 'm'},
+  {"create", no_argument, NULL, 'c'},
 	{NULL, 0, NULL, 0},
 };
 
@@ -85,11 +86,16 @@ int overwrite_using_mmap(struct yutil_opt *yo, int fd)
 
 int overwrite(struct yutil_opt *yo)
 {
-	int ret, fd;
+	int ret, fd, flags = O_WRONLY;
+  mode_t mode = 0644;
+
+
 	if (yo->parent_flg)
-		fd = open(yo->path, O_WRONLY | O_PARENT);
-	else
-		fd = open(yo->path, O_WRONLY);
+		flags |= O_PARENT;
+  if (yo->create_flg)
+    flags |= O_CREAT;
+
+	fd = open(yo->path, flags, mode);
 	if (fd < 0) {
 		ERROR("Failed to open file %s", yo->path);
 		return -1;
@@ -111,6 +117,8 @@ int main(int argc, char *argv[])
  	int c, option_index, ret, command_len;
 	struct yutil_opt yo = {
 			.parent_flg = false,
+      .mmap_flg = false,
+      .create_flg = false,
 	};
 
 	command_len = strlen(argv[1]);
@@ -137,7 +145,7 @@ int main(int argc, char *argv[])
 			case 'a':
 				yo.arg_len = strlen(optarg);
 				yo.arg = (char *)malloc(sizeof(char) * yo.arg_len);
-				strncpy(yo.arg, optarg, yo.path_len);
+				strncpy(yo.arg, optarg, yo.arg_len);
 				break;
 			case 'o':
 				yo.parent_flg = true;
@@ -145,6 +153,8 @@ int main(int argc, char *argv[])
 			case 'm':
 				yo.mmap_flg = true;
 				break;
+      case 'c':
+        yo.create_flg = true;
 		}
 	}
 

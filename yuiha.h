@@ -18,5 +18,6 @@ struct yutil_opt {
 	char *arg;
 	bool parent_flg;
 	bool mmap_flg;
+  bool create_flg;
 };
 
