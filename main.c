@@ -1,3 +1,5 @@
+#define _LARGEFILE64_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -8,16 +10,19 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include "err.h"
 #include "yuiha.h"
 
-#define OPTSTRING "p:a:omc"
+#define OPTSTRING "p:a:i:n:omc"
 #define BUF_SIZE  4096
 
 static struct option long_options[] = {
   {"path", required_argument, NULL, 'p'},
   {"arg", required_argument, NULL, 'a'},
+  {"io-type", required_argument, NULL, 'i'},
+  {"ind", required_argument, NULL, 'n'},
   {"parent", no_argument, NULL, 'o'},
   {"mmap", no_argument, NULL, 'm'},
   {"create", no_argument, NULL, 'c'},
@@ -112,6 +117,55 @@ int overwrite(struct yutil_opt *yo)
   return 0;
 }
 
+int file_io_test(struct yutil_opt *yo)
+{
+  int fd, ret, flags = O_CREAT;
+  mode_t mode = 0644;
+  char *buf = (char *)malloc(4096);
+  off64_t offset = 0;
+  
+  memset(buf, 'a', 4096);
+
+  switch (yo->io) {
+    case WRITE:
+      flags |= O_RDWR;
+    case READ:
+      flags |= O_RDONLY;
+  }
+
+  switch (yo->ind) {
+    case 0:
+      offset = 0;
+      break;
+    case 1:
+      offset = 12*4096;
+      break;
+    case 2:
+      offset = 12*4096+1024*4096; 
+      break;
+    case 3:
+      offset = 1024*1024;
+      offset *= 4096;
+      offset += 12*4096;
+      break;
+  }
+
+  fd = open(yo->path, flags, mode);
+  if (fd < 0) {
+    ERROR("Failed to open file %s", yo->path);
+    return -1;
+  }
+  
+  lseek64(fd, offset, SEEK_SET);
+  ret = write(fd, buf, 4096);
+  if (ret < 0) {
+    ERROR("Failed to write");
+    return -1;
+  }
+
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
   int c, option_index, ret, command_len;
@@ -128,7 +182,9 @@ int main(int argc, char *argv[])
     yo.com = OVERWRITE;
   } else if (command_len == 3 && !strncmp(argv[1], "cat", 3)) {
     yo.com = CAT;
-  } else {}
+  } else if (command_len == 4 && !strncmp(argv[1], "test", 4)) {
+    yo.com = TEST;
+  }
 
   while (true) {
     if ((c = getopt_long(argc - 1, &argv[1], OPTSTRING, long_options,
@@ -146,6 +202,16 @@ int main(int argc, char *argv[])
         yo.arg_len = strlen(optarg);
         yo.arg = (char *)malloc(sizeof(char) * yo.arg_len);
         strncpy(yo.arg, optarg, yo.arg_len);
+        break;
+      case 'i':
+        if (!strncmp(optarg, "read", 4)) {
+          yo.io = READ;
+        } else if (!strncmp(optarg, "write", 4)) {
+          yo.io = WRITE;
+        }
+        break;
+      case 'n':
+        yo.ind = atoi(optarg);
         break;
       case 'o':
         yo.parent_flg = true;
@@ -168,8 +234,12 @@ int main(int argc, char *argv[])
   case OVERWRITE:
     overwrite(&yo);
     break;
+  case TEST:
+    file_io_test(&yo);
+    break;
   default:
-    printf("command not found");
+    ERROR("Command not found");
+    return -1;
   }
   return 0;
 }

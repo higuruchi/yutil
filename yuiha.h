@@ -8,6 +8,12 @@ enum yutil_command {
 	VC,
 	CAT,
 	OVERWRITE,
+  TEST,
+};
+
+enum io_type {
+  READ,
+  WRITE,
 };
 
 struct yutil_opt {
@@ -16,6 +22,8 @@ struct yutil_opt {
 	char *path;
 	int arg_len;
 	char *arg;
+  enum io_type io;
+  int ind;
 	bool parent_flg;
 	bool mmap_flg;
   bool create_flg;
