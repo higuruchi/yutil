@@ -4,11 +4,16 @@
 #define O_PARENT				(1 << 23) 
 #define YUIHA_SUPER_MAGIC 0xEF54
 
+#define DT_PARENT  24
+#define DT_SIBLING 40
+#define DT_CHILD   72
+
 enum yutil_command {
 	VC,
 	CAT,
 	OVERWRITE,
   TEST,
+  DENT,
 };
 
 enum io_type {
@@ -29,3 +34,9 @@ struct yutil_opt {
   bool create_flg;
 };
 
+struct linux_dirent {
+  long           d_ino;
+  off_t          d_off;
+  unsigned short d_reclen;
+  char           d_name[];
+};

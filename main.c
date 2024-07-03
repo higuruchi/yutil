@@ -1,16 +1,19 @@
 #define _LARGEFILE64_SOURCE
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <getopt.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include "err.h"
 #include "yuiha.h"
@@ -166,6 +169,52 @@ int file_io_test(struct yutil_opt *yo)
   return 0;
 }
 
+int list_file_versions(struct yutil_opt *yo) {
+  char buf[1024];
+  int buf_off = 0;
+  struct linux_dirent *d;
+  int fd, nread;
+  unsigned short *flag_p;
+  
+  if (yo->parent_flg)
+    fd = open(yo->path, O_RDONLY | O_PARENT);
+  else
+    fd = open(yo->path, O_RDONLY);
+  if (fd < 0) {
+    ERROR("Failed to open file %s\n", yo->path);
+    return -1;
+  }
+
+  nread = syscall(SYS_getdents, fd, buf, 1024);
+  if (nread < 0) {
+    ERROR("Failed to get version entry\n");
+    return -1;
+  }
+  
+  printf("nread %d\n", nread);
+  while (buf_off < nread) {
+    d = (struct linux_dirent *) (buf + buf_off);
+    flag_p = (unsigned short *)d->d_name;
+    switch (*flag_p) {
+      case DT_PARENT:
+        printf("ino=%lu is a parent\n", d->d_ino);
+        break;
+      case DT_SIBLING:
+        printf("ino=%lu is a sibling\n", d->d_ino);
+        break;
+      case DT_CHILD:
+        printf("ino=%lu is a child\n", d->d_ino);
+        break;
+      default:
+        printf("ino=%lu is a unknown\n", d->d_ino);
+        break;
+    }
+
+    buf_off += d->d_reclen;
+  }
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
   int c, option_index, ret, command_len;
@@ -184,6 +233,8 @@ int main(int argc, char *argv[])
     yo.com = CAT;
   } else if (command_len == 4 && !strncmp(argv[1], "test", 4)) {
     yo.com = TEST;
+  } else if (command_len == 4 && !strncmp(argv[1], "dent", 2)) {
+    yo.com = DENT;
   }
 
   while (true) {
@@ -236,6 +287,9 @@ int main(int argc, char *argv[])
     break;
   case TEST:
     file_io_test(&yo);
+    break;
+  case DENT:
+    list_file_versions(&yo);
     break;
   default:
     ERROR("Command not found");
