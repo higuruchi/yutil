@@ -1,7 +1,8 @@
 #include <stdbool.h>
 
-#define O_VERSION       (1 << 22)
-#define O_PARENT				(1 << 23) 
+#define O_VERSION       020000000
+#define O_PARENT				040000000 
+#define O_VSEARCH       0200000000
 #define YUIHA_SUPER_MAGIC 0xEF54
 
 #define DT_PARENT  24
@@ -29,6 +30,7 @@ struct yutil_opt {
 	char *arg;
   enum io_type io;
   int ind;
+  int ino;
 	bool parent_flg;
 	bool mmap_flg;
   bool create_flg;

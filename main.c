@@ -18,7 +18,7 @@
 #include "err.h"
 #include "yuiha.h"
 
-#define OPTSTRING "p:a:i:n:omc"
+#define OPTSTRING "p:a:i:n:d:omc"
 #define BUF_SIZE  4096
 
 static struct option long_options[] = {
@@ -26,6 +26,7 @@ static struct option long_options[] = {
   {"arg", required_argument, NULL, 'a'},
   {"io-type", required_argument, NULL, 'i'},
   {"ind", required_argument, NULL, 'n'},
+  {"inode", required_argument, NULL, 'd'},
   {"parent", no_argument, NULL, 'o'},
   {"mmap", no_argument, NULL, 'm'},
   {"create", no_argument, NULL, 'c'},
@@ -37,7 +38,7 @@ int create_version(struct yutil_opt *yo, int mode)
 {
   int fd = open(yo->path, mode | O_VERSION);
   if (fd < 0) {
-    ERROR("Failed to open file %s", yo->path);
+    ERROR("Failed to open file %s\n", yo->path);
     return -1;
   }
 
@@ -47,19 +48,21 @@ int create_version(struct yutil_opt *yo, int mode)
 
 int cat_file(struct yutil_opt *yo)
 {
-  int ret, fd;
+  int ret, fd, flags = O_RDONLY;
   char *buf = (char *)malloc(BUF_SIZE);
   if (!buf) {
-    ERROR("Memory allocation error");
+    ERROR("Memory allocation error\n");
     return -1;
   }
 
   if (yo->parent_flg)
-    fd = open(yo->path, O_RDONLY | O_PARENT);
-  else
-    fd = open(yo->path, O_RDONLY);
+    flags |= O_PARENT;
+  if (yo->ino)
+    flags |= O_CREAT | O_VSEARCH;
+
+  fd = open(yo->path, flags, yo->ino);
   if (fd < 0) {
-    ERROR("Failed to open file %s", yo->path);
+    ERROR("Failed to open file %s\n", yo->path);
     return -1;
   }
 
@@ -81,7 +84,7 @@ int overwrite_using_mmap(struct yutil_opt *yo, int fd)
 
   map = (char *)mmap(NULL, map_size, PROT_WRITE, MAP_SHARED, fd, 0);
   if (map == MAP_FAILED) {
-    ERROR("Mmap failed");
+    ERROR("Mmap failed\n");
     return -1;
   }
   strncpy(map, yo->arg, yo->arg_len);
@@ -95,17 +98,27 @@ int overwrite_using_mmap(struct yutil_opt *yo, int fd)
 int overwrite(struct yutil_opt *yo)
 {
   int ret, fd, flags = O_WRONLY;
-  mode_t mode = 0644;
+  mode_t mode;
 
+  if (yo->create_flg && yo->ino) {
+    ERROR("Invalid option\n");
+    return -1;
+  }
 
   if (yo->parent_flg)
     flags |= O_PARENT;
-  if (yo->create_flg)
+  if (yo->create_flg) {
+    mode = 0644;
     flags |= O_CREAT;
+  }
+  if (yo->ino) {
+    mode = yo->ino;
+    flags |= O_CREAT | O_VSEARCH;
+  }
 
   fd = open(yo->path, flags, mode);
   if (fd < 0) {
-    ERROR("Failed to open file %s", yo->path);
+    ERROR("Failed to open file %s\n", yo->path);
     return -1;
   }
 
@@ -116,7 +129,7 @@ int overwrite(struct yutil_opt *yo)
   }
 
   if (ret < 0)
-    ERROR("Failed to write");
+    ERROR("Failed to write\n");
   return 0;
 }
 
@@ -155,14 +168,14 @@ int file_io_test(struct yutil_opt *yo)
 
   fd = open(yo->path, flags, mode);
   if (fd < 0) {
-    ERROR("Failed to open file %s", yo->path);
+    ERROR("Failed to open file %s\n", yo->path);
     return -1;
   }
   
   lseek64(fd, offset, SEEK_SET);
   ret = write(fd, buf, 4096);
   if (ret < 0) {
-    ERROR("Failed to write");
+    ERROR("Failed to write\n");
     return -1;
   }
 
@@ -173,13 +186,18 @@ int list_file_versions(struct yutil_opt *yo) {
   char buf[1024];
   int buf_off = 0;
   struct linux_dirent *d;
-  int fd, nread;
+  int fd, nread, flags = O_RDONLY;
   unsigned short *flag_p;
+  mode_t mode;
   
   if (yo->parent_flg)
-    fd = open(yo->path, O_RDONLY | O_PARENT);
-  else
-    fd = open(yo->path, O_RDONLY);
+    flags |= O_PARENT;
+  if (yo->ino) {
+    mode = yo->ino;
+    flags |= O_VSEARCH | O_CREAT;
+  }
+
+  fd = open(yo->path, flags, mode);
   if (fd < 0) {
     ERROR("Failed to open file %s\n", yo->path);
     return -1;
@@ -191,7 +209,6 @@ int list_file_versions(struct yutil_opt *yo) {
     return -1;
   }
   
-  printf("nread %d\n", nread);
   while (buf_off < nread) {
     d = (struct linux_dirent *) (buf + buf_off);
     flag_p = (unsigned short *)d->d_name;
@@ -219,6 +236,7 @@ int main(int argc, char *argv[])
 {
   int c, option_index, ret, command_len;
   struct yutil_opt yo = {
+      .ino = 0,
       .parent_flg = false,
       .mmap_flg = false,
       .create_flg = false,
@@ -264,6 +282,9 @@ int main(int argc, char *argv[])
       case 'n':
         yo.ind = atoi(optarg);
         break;
+      case 'd':
+        yo.ino = atoi(optarg);
+        break;
       case 'o':
         yo.parent_flg = true;
         break;
@@ -292,7 +313,7 @@ int main(int argc, char *argv[])
     list_file_versions(&yo);
     break;
   default:
-    ERROR("Command not found");
+    ERROR("Command not found\n");
     return -1;
   }
   return 0;
