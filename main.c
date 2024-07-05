@@ -162,6 +162,7 @@ int file_io_test(struct yutil_opt *yo)
     case 3:
       offset = 1024*1024;
       offset *= 4096;
+      offset += 1024*4096;
       offset += 12*4096;
       break;
   }
