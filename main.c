@@ -212,20 +212,18 @@ int list_file_versions(struct yutil_opt *yo) {
   while (buf_off < nread) {
     d = (struct linux_dirent *) (buf + buf_off);
     flag_p = (unsigned short *)d->d_name;
-    switch (*flag_p) {
-      case DT_PARENT:
-        printf("ino=%lu is a parent\n", d->d_ino);
-        break;
-      case DT_SIBLING:
-        printf("ino=%lu is a sibling\n", d->d_ino);
-        break;
-      case DT_CHILD:
-        printf("ino=%lu is a child\n", d->d_ino);
-        break;
-      default:
-        printf("ino=%lu is a unknown\n", d->d_ino);
-        break;
-    }
+    
+    if (*flag_p & DT_PARENT)
+      printf("ino=%lu is a parent.", d->d_ino);
+    if (*flag_p & DT_SIBLING)
+      printf("ino=%lu is a sibling.", d->d_ino);
+    if (*flag_p & DT_CHILD)
+      printf("ino=%lu is a child.", d->d_ino);
+    if (*flag_p & DT_VROOT)
+      printf("root.");
+    if (*flag_p & DT_VCURRENT)
+      printf("current.");
+    puts("");
 
     buf_off += d->d_reclen;
   }

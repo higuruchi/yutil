@@ -5,9 +5,11 @@
 #define O_VSEARCH       0200000000
 #define YUIHA_SUPER_MAGIC 0xEF54
 
-#define DT_PARENT  24
-#define DT_SIBLING 40
-#define DT_CHILD   72
+#define DT_PARENT   020
+#define DT_SIBLING  040
+#define DT_CHILD    0100
+#define DT_VROOT    0200
+#define DT_VCURRENT 0400
 
 enum yutil_command {
 	VC,
