@@ -6,10 +6,8 @@
 #define YUIHA_SUPER_MAGIC 0xEF54
 
 #define DT_PARENT   020
-#define DT_SIBLING  040
-#define DT_CHILD    0100
-#define DT_VROOT    0200
-#define DT_VCURRENT 0400
+#define DT_CHILD    040
+#define DT_VROOT    0100
 
 enum yutil_command {
 	VC,
@@ -39,8 +37,8 @@ struct yutil_opt {
 };
 
 struct linux_dirent {
-  long           d_ino;
-  off_t          d_off;
-  unsigned short d_reclen;
-  char           d_name[];
+	unsigned long		d_ino;
+	unsigned long 	d_off;
+	short						d_reclen;
+	char						d_name[];
 };
