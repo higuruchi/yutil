@@ -18,22 +18,6 @@
 #include "err.h"
 #include "yuiha.h"
 
-#define OPTSTRING "p:a:i:n:d:omc"
-#define BUF_SIZE  4096
-
-static struct option long_options[] = {
-  {"path", required_argument, NULL, 'p'},
-  {"arg", required_argument, NULL, 'a'},
-  {"io-type", required_argument, NULL, 'i'},
-  {"ind", required_argument, NULL, 'n'},
-  {"inode", required_argument, NULL, 'd'},
-  {"parent", no_argument, NULL, 'o'},
-  {"mmap", no_argument, NULL, 'm'},
-  {"create", no_argument, NULL, 'c'},
-  {NULL, 0, NULL, 0},
-};
-
-
 int create_version(struct yutil_opt *yo, int mode)
 {
   int fd = open(yo->path, mode | O_VERSION);
@@ -46,25 +30,63 @@ int create_version(struct yutil_opt *yo, int mode)
   return 0;
 }
 
+int open_version(struct yutil_opt *yo)
+{
+	int ret, fd, flags, mode;
+
+	switch (yo->io) {
+		case READ:
+				flags = O_RDONLY;
+				break;
+		case WRITE:
+				flags = O_RDWR;
+				break;
+	}
+
+	if (yo->ino && yo->create_flg) {
+		ERROR("Invalid flag specification");
+		return -1;
+	}
+
+	if (yo->parent_flg)
+		flags |= O_PARENT;
+
+	if (yo->ino) {
+		flags |= O_CREAT | O_VSEARCH;
+		mode = yo->ino;
+	}
+
+	if (yo->create_flg) {
+		mode = 0644;
+		flags |= O_CREAT;
+	}
+
+	fd = open(yo->path, flags, mode);
+	if (fd < 0) {
+		ERROR("Failed to open file %s\n", yo->path);
+		return -1;
+	}
+
+	return fd;
+}
+
+#define BUF_SIZE  4096
+
 int cat_file(struct yutil_opt *yo)
 {
-  int ret, fd, flags = O_RDONLY;
+  int ret, fd;
   char *buf = (char *)malloc(BUF_SIZE);
   if (!buf) {
     ERROR("Memory allocation error\n");
     return -1;
   }
 
-  if (yo->parent_flg)
-    flags |= O_PARENT;
-  if (yo->ino)
-    flags |= O_CREAT | O_VSEARCH;
-
-  fd = open(yo->path, flags, yo->ino);
-  if (fd < 0) {
-    ERROR("Failed to open file %s\n", yo->path);
-    return -1;
-  }
+	yo->io = READ;
+	fd = open_version(yo);
+	if (fd < 0) {
+		ERROR("");
+		return -1;
+	}
 
   do {
     ret = read(fd, buf, BUF_SIZE);
@@ -100,37 +122,19 @@ int overwrite(struct yutil_opt *yo)
   int ret, fd, flags = O_WRONLY;
   mode_t mode;
 
-  if (yo->create_flg && yo->ino) {
-    ERROR("Invalid option\n");
-    return -1;
-  }
+	yo->io = WRITE;
 
-  if (yo->parent_flg)
-    flags |= O_PARENT;
-  if (yo->create_flg) {
-    mode = 0644;
-    flags |= O_CREAT;
-  }
-  if (yo->ino) {
-    mode = yo->ino;
-    flags |= O_CREAT | O_VSEARCH;
-  }
+	fd = open_version(yo);
+	if (fd < 0) {
+		ERROR("");
+		return -1;
+	}
 
-  fd = open(yo->path, flags, mode);
-  if (fd < 0) {
-    ERROR("Failed to open file %s\n", yo->path);
-    return -1;
-  }
+	ret = write(fd, yo->arg, yo->arg_len);
 
-  if (yo->mmap_flg) {
-    ret = overwrite_using_mmap(yo, fd);
-  } else {
-    ret = write(fd, yo->arg, yo->arg_len);
-  }
-
-  if (ret < 0)
-    ERROR("Failed to write\n");
-  return 0;
+	if (ret < 0)
+		ERROR("Failed to write\n");
+	return 0;
 }
 
 int file_io_test(struct yutil_opt *yo)
@@ -142,11 +146,10 @@ int file_io_test(struct yutil_opt *yo)
   
   memset(buf, 'a', 4096);
 
-  switch (yo->io) {
-    case WRITE:
-      flags |= O_RDWR;
-    case READ:
-      flags |= O_RDONLY;
+  fd = open_version(yo);
+  if (fd < 0) {
+    ERROR("");
+    return -1;
   }
 
   switch (yo->ind) {
@@ -167,12 +170,6 @@ int file_io_test(struct yutil_opt *yo)
       break;
   }
 
-  fd = open(yo->path, flags, mode);
-  if (fd < 0) {
-    ERROR("Failed to open file %s\n", yo->path);
-    return -1;
-  }
-  
   lseek64(fd, offset, SEEK_SET);
   ret = write(fd, buf, 4096);
   if (ret < 0) {
@@ -190,17 +187,15 @@ int list_file_versions(struct yutil_opt *yo) {
   int fd, nread, flags = O_RDONLY;
   unsigned short *flag_p;
   mode_t mode;
-  
-  if (yo->parent_flg)
-    flags |= O_PARENT;
-  if (yo->ino) {
-    mode = yo->ino;
-    flags |= O_VSEARCH | O_CREAT;
-  }
 
-  fd = open(yo->path, flags, mode);
+	if (yo->create_flg) {
+		ERROR("Invalid flag specification");
+		return -1;
+	}
+
+	fd = open_version(yo);
   if (fd < 0) {
-    ERROR("Failed to open file %s\n", yo->path);
+    ERROR("");
     return -1;
   }
 
@@ -229,9 +224,104 @@ int list_file_versions(struct yutil_opt *yo) {
   return 0;
 }
 
+int delete_file_version(struct yutil_opt *yo) {
+	int fd, err;
+
+	fd = open_version(yo);
+	if (fd < 0) {
+		ERROR("Failed to open %s\n", yo->path);
+		return -1;
+	}
+
+	err = ioctl(fd, YUIHA_IOC_DEL_VERSION);
+	return 0;
+}
+
+void parse_subcommand(struct yutil_opt *yo, const char *subcommand)
+{
+	int command_len;
+
+  command_len = strlen(subcommand);
+  if (command_len == 2 && !strncmp(subcommand, "vc", 2)) {
+    yo->com = VC;
+  } else if (command_len == 2 && !strncmp(subcommand, "ow", 2)) {
+    yo->com = OVERWRITE;
+  } else if (command_len == 3 && !strncmp(subcommand, "cat", 3)) {
+    yo->com = CAT;
+  } else if (command_len == 4 && !strncmp(subcommand, "test", 4)) {
+    yo->com = TEST;
+  } else if (command_len == 4 && !strncmp(subcommand, "dent", 4)) {
+    yo->com = DENT;
+  } else if (command_len == 6 && !strncmp(subcommand, "delete", 6)) {
+		yo->com = DEL;
+	}
+
+	return;
+}
+
+#define OPTSTRING "p:a:i:n:d:omc"
+
+void parse_option(struct yutil_opt *yo, const int argc, char *argv[])
+{
+	int c, option_index;
+	static struct option long_options[] = {
+		{"path", required_argument, NULL, 'p'},
+		{"arg", required_argument, NULL, 'a'},
+		{"io-type", required_argument, NULL, 't'},
+		{"ind", required_argument, NULL, 's'},
+		{"vno", required_argument, NULL, 'v'},
+		{"parent", no_argument, NULL, 'o'},
+		{"mmap", no_argument, NULL, 'm'},
+		{"create", no_argument, NULL, 'c'},
+		{NULL, 0, NULL, 0},
+	};
+
+  while (true) {
+    if ((c = getopt_long(argc, argv, OPTSTRING, long_options,
+                         &option_index)) == -1) {
+      break;
+    }
+
+    switch (c) {
+      case 'p':
+        yo->path_len = strlen(optarg);
+        yo->path = (char *)malloc(sizeof(char) * yo->path_len);
+        strncpy(yo->path, optarg, yo->path_len);
+        break;
+      case 'a':
+        yo->arg_len = strlen(optarg);
+        yo->arg = (char *)malloc(sizeof(char) * yo->arg_len);
+        strncpy(yo->arg, optarg, yo->arg_len);
+        break;
+      case 't':
+        if (!strncmp(optarg, "read", 4)) {
+          yo->io = READ;
+        } else if (!strncmp(optarg, "write", 4)) {
+          yo->io = WRITE;
+        }
+        break;
+      case 's':
+        yo->ind = atoi(optarg);
+        break;
+      case 'v':
+        yo->ino = atoi(optarg);
+        break;
+      case 'o':
+        yo->parent_flg = true;
+        break;
+      case 'm':
+        yo->mmap_flg = true;
+        break;
+      case 'c':
+        yo->create_flg = true;
+    }
+  }
+
+	return;
+}
+
 int main(int argc, char *argv[])
 {
-  int c, option_index, ret, command_len;
   struct yutil_opt yo = {
       .ino = 0,
       .parent_flg = false,
@@ -239,59 +329,8 @@ int main(int argc, char *argv[])
       .create_flg = false,
   };
 
-  command_len = strlen(argv[1]);
-  if (command_len == 2 && !strncmp(argv[1], "vc", 2)) {
-    yo.com = VC;
-  } else if (command_len == 2 && !strncmp(argv[1], "ow", 2)) {
-    yo.com = OVERWRITE;
-  } else if (command_len == 3 && !strncmp(argv[1], "cat", 3)) {
-    yo.com = CAT;
-  } else if (command_len == 4 && !strncmp(argv[1], "test", 4)) {
-    yo.com = TEST;
-  } else if (command_len == 4 && !strncmp(argv[1], "dent", 2)) {
-    yo.com = DENT;
-  }
-
-  while (true) {
-    if ((c = getopt_long(argc - 1, &argv[1], OPTSTRING, long_options,
-                         &option_index)) == -1) {
-      break;
-    }
-
-    switch (c) {
-      case 'p':
-        yo.path_len = strlen(optarg);
-        yo.path = (char *)malloc(sizeof(char) * yo.path_len);
-        strncpy(yo.path, optarg, yo.path_len);
-        break;
-      case 'a':
-        yo.arg_len = strlen(optarg);
-        yo.arg = (char *)malloc(sizeof(char) * yo.arg_len);
-        strncpy(yo.arg, optarg, yo.arg_len);
-        break;
-      case 'i':
-        if (!strncmp(optarg, "read", 4)) {
-          yo.io = READ;
-        } else if (!strncmp(optarg, "write", 4)) {
-          yo.io = WRITE;
-        }
-        break;
-      case 'n':
-        yo.ind = atoi(optarg);
-        break;
-      case 'd':
-        yo.ino = atoi(optarg);
-        break;
-      case 'o':
-        yo.parent_flg = true;
-        break;
-      case 'm':
-        yo.mmap_flg = true;
-        break;
-      case 'c':
-        yo.create_flg = true;
-    }
-  }
+	parse_subcommand(&yo, argv[1]);
+	parse_option(&yo, argc-1, &argv[1]);
 
   switch (yo.com) {
   case VC:
@@ -309,6 +348,9 @@ int main(int argc, char *argv[])
   case DENT:
     list_file_versions(&yo);
     break;
+	case DEL:
+		delete_file_version(&yo);
+		break;
   default:
     ERROR("Command not found\n");
     return -1;
