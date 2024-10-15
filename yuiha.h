@@ -10,7 +10,7 @@
 #define DT_CHILD    040
 #define DT_VROOT    0100
 
-#define YUIHA_IOC_DEL_VERSION		_IO('f', 9)
+#define YUIHA_IOC_DEL_VERSION		_IOWR('f', 9, unsigned long)
 
 enum yutil_command {
 	VC,

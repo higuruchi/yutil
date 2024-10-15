@@ -226,6 +226,7 @@ int list_file_versions(struct yutil_opt *yo) {
 
 int delete_file_version(struct yutil_opt *yo) {
 	int fd, err;
+	unsigned long ino = yo->ino;
 
 	fd = open_version(yo);
 	if (fd < 0) {
@@ -233,7 +234,8 @@ int delete_file_version(struct yutil_opt *yo) {
 		return -1;
 	}
 
-	err = ioctl(fd, YUIHA_IOC_DEL_VERSION);
+	err = ioctl(fd, YUIHA_IOC_DEL_VERSION, ino);
+	close(fd);
 	return 0;
 }
 
