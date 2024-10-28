@@ -83,8 +83,51 @@ $ yutil dent [OPTION...]
 $ yutil dent --path=hoge.txt
 ```
 
+### version deletion
+
+指定したバージョンを削除する．
+
+
+```bash
+$ yutil delete [OPTION...]
+```
+
+**option**
+
+-p, --path		ファイルパス  
+-v, --vno			バージョンIDを指定  
+-o, --parent	親バージョンを開く  
+
+**example**
+
+```bash
+$ yutil delete --path=hoge.txt --vno=13
+```
+
+### version link
+
+指定したバージョンにハードリンクを作成する，
+
+```bash
+$ yutil vln [OPTION...]
+```
+
+**option**
+
+-p, --path		ファイルパス  
+-v, --vno			バージョンIDを指定  
+-o, --parent	親バージョンを開く  
+-d, --target	リンク先のファイルパス  
+
+**example**
+
+```bash
+$ yutil vln --path=hoge.txt --vno=13 --target=fuga.txt
+```
+
 ## Build
 
 ```
 make
 ```
+
