@@ -239,6 +239,19 @@ int delete_file_version(struct yutil_opt *yo) {
 	return 0;
 }
 
+int version_link(struct yutil_opt *yo) {
+	int fd, err;
+
+	fd = open_version(yo);
+	if (fd < 0) {
+		ERROR("Failed to open %s\n", yo->path);
+	}
+
+	err = ioctl(fd, YUIHA_IOC_LINK_VERSION, yo->target);
+	close(fd);
+	return 0;
+}
+
 void parse_subcommand(struct yutil_opt *yo, const char *subcommand)
 {
 	int command_len;
@@ -256,12 +269,14 @@ void parse_subcommand(struct yutil_opt *yo, const char *subcommand)
 		yo->com = DENT;
 	} else if (command_len == 6 && !strncmp(subcommand, "delete", 6)) {
 		yo->com = DEL;
+	} else if (command_len == 3 && !strncmp(subcommand, "vln", 3)) {
+		yo->com = VLN;
 	}
 
 	return;
 }
 
-#define OPTSTRING "p:a:i:n:d:omc"
+#define OPTSTRING "p:a:t:s:v:d:omc"
 
 void parse_option(struct yutil_opt *yo, const int argc, char *argv[])
 {
@@ -272,6 +287,7 @@ void parse_option(struct yutil_opt *yo, const int argc, char *argv[])
 		{"io-type", required_argument, NULL, 't'},
 		{"ind", required_argument, NULL, 's'},
 		{"vno", required_argument, NULL, 'v'},
+		{"target", required_argument, NULL, 'd'},
 		{"parent", no_argument, NULL, 'o'},
 		{"mmap", no_argument, NULL, 'm'},
 		{"create", no_argument, NULL, 'c'},
@@ -279,7 +295,7 @@ void parse_option(struct yutil_opt *yo, const int argc, char *argv[])
 	};
 
 	while (true) {
-		if ((c = getopt_long(argc, argv, OPTSTRING, long_options,
+		if ((c = getopt_long(argc, argv, "", long_options,
 												 &option_index)) == -1) {
 			break;
 		}
@@ -307,6 +323,11 @@ void parse_option(struct yutil_opt *yo, const int argc, char *argv[])
 				break;
 			case 'v':
 				yo->ino = atoi(optarg);
+				break;
+			case 'd':
+				yo->target_len = strlen(optarg);
+				yo->target = (char *)malloc(sizeof(char) * yo->target_len);
+				strncpy(yo->target, optarg, yo->target_len);
 				break;
 			case 'o':
 				yo->parent_flg = true;
@@ -352,6 +373,9 @@ int main(int argc, char *argv[])
 		break;
 	case DEL:
 		delete_file_version(&yo);
+		break;
+	case VLN:
+		version_link(&yo);
 		break;
 	default:
 		ERROR("Command not found\n");

@@ -11,6 +11,7 @@
 #define DT_VROOT		0100
 
 #define YUIHA_IOC_DEL_VERSION		_IOWR('f', 9, unsigned long)
+#define YUIHA_IOC_LINK_VERSION	_IOW('f', 10, char *)
 
 enum yutil_command {
 	VC,
@@ -19,6 +20,7 @@ enum yutil_command {
 	TEST,
 	DENT,
 	DEL,
+	VLN,
 };
 
 enum io_type {
@@ -30,6 +32,8 @@ struct yutil_opt {
 	enum yutil_command com;
 	int path_len;
 	char *path;
+	int target_len;
+	char *target;
 	int arg_len;
 	char *arg;
 	enum io_type io;
