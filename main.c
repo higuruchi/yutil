@@ -252,6 +252,23 @@ int version_link(struct yutil_opt *yo) {
 	return 0;
 }
 
+int version_stat(struct yutil_opt *yo) {
+	int fd, err;
+	struct yuiha_stat stat;
+
+	fd = open_version(yo);
+	if (fd < 0) {
+		ERROR("Failed to open %s\n", yo->path);
+	}
+
+	err = ioctl(fd, YUIHA_IOC_STAT_VERSION, &stat);
+	close(fd);
+
+	printf("version creation time=%lu\n", stat.yst_vtime);
+
+	return 0;
+}
+
 void parse_subcommand(struct yutil_opt *yo, const char *subcommand)
 {
 	int command_len;
@@ -271,6 +288,8 @@ void parse_subcommand(struct yutil_opt *yo, const char *subcommand)
 		yo->com = DEL;
 	} else if (command_len == 3 && !strncmp(subcommand, "vln", 3)) {
 		yo->com = VLN;
+	} else if (command_len == 4 && !strncmp(subcommand, "stat", 4)) {
+		yo->com = STAT;
 	}
 
 	return;
@@ -376,6 +395,9 @@ int main(int argc, char *argv[])
 		break;
 	case VLN:
 		version_link(&yo);
+		break;
+	case STAT:
+		version_stat(&yo);
 		break;
 	default:
 		ERROR("Command not found\n");
