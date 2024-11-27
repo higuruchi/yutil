@@ -12,7 +12,6 @@
 
 #define YUIHA_IOC_DEL_VERSION		_IOWR('f', 9, unsigned long)
 #define YUIHA_IOC_LINK_VERSION	_IOW('f', 10, char *)
-#define YUIHA_IOC_STAT_VERSION	_IOR('f', 12, char *)
 #define YUIHA_IOC_GET_ROOT			_IOR('f', 11, unsigned int)
 
 enum yutil_command {
@@ -46,21 +45,6 @@ struct yutil_opt {
 	bool parent_flg;
 	bool mmap_flg;
 	bool create_flg;
-};
-
-struct yuiha_stat {
- 	unsigned short yst_dev;
- 	unsigned short yst_ino;
- 	unsigned short yst_mode;
- 	unsigned short yst_nlink;
- 	unsigned short yst_uid;
- 	unsigned short yst_gid;
- 	unsigned short yst_rdev;
-	unsigned long  yst_size;
-	unsigned long  yst_atime;
- 	unsigned long  yst_mtime;
- 	unsigned long  yst_ctime;
- 	unsigned long  yst_vtime;
 };
 
 struct linux_dirent {

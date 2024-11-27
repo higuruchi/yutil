@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <time.h>
 
 #include "err.h"
 #include "yuiha.h"
@@ -254,17 +255,16 @@ int version_link(struct yutil_opt *yo) {
 
 int version_stat(struct yutil_opt *yo) {
 	int fd, err;
-	struct yuiha_stat stat;
+	struct stat stat;
 
 	fd = open_version(yo);
 	if (fd < 0) {
 		ERROR("Failed to open %s\n", yo->path);
 	}
 
-	err = ioctl(fd, YUIHA_IOC_STAT_VERSION, &stat);
+	fstat(fd, &stat);
+	printf("Version created: %s", ctime(&stat.st_ctime));
 	close(fd);
-
-	printf("version creation time=%lu\n", stat.yst_vtime);
 
 	return 0;
 }
